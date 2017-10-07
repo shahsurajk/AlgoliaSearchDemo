@@ -7,6 +7,9 @@ import android.view.inputmethod.InputMethodManager;
 
 import com.madscientists.algoliademo.R;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+
 import uk.co.chrisjenx.calligraphy.CalligraphyConfig;
 
 /**
@@ -35,6 +38,11 @@ public class Utils {
                 .setFontAttrId(R.attr.fontPath)
                 .build()
         );
+    }
+
+    public static String formatDate(String preFormattedDate) throws ParseException {
+        return new SimpleDateFormat("MMM `YY").format(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").
+                parse(preFormattedDate.replaceAll("Z$", "+0000")));
     }
     public static void hideKeyboard(Context context) {
         View view = ((Activity)context).getCurrentFocus();

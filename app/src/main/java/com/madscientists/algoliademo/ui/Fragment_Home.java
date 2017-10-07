@@ -32,7 +32,6 @@ import butterknife.Unbinder;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Consumer;
@@ -57,6 +56,7 @@ public class Fragment_Home extends Fragment {
     private int currentPageCount =-1;
     private LinearLayoutManager layoutManager;
     private boolean loadingMore = true;
+    private String searchString = "";
 
     @Nullable
     @Override
@@ -74,6 +74,7 @@ public class Fragment_Home extends Fragment {
         initSeachET();
     }
 
+    // todo dispose off observable
     private void initSeachET() {
         Observable.create(new ObservableOnSubscribe() {
             @Override
@@ -86,7 +87,7 @@ public class Fragment_Home extends Fragment {
 
                     @Override
                     public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                        if (charSequence.toString().trim().length()!=0){
+                        if (charSequence.toString().trim().length() > 1) {
                             e.onNext(charSequence.toString().trim());
                         }
                     }
@@ -97,17 +98,30 @@ public class Fragment_Home extends Fragment {
                     }
                 });
             }
+        }).doOnError(new Consumer<Throwable>() {
+            @Override
+            public void accept(Throwable throwable) throws Exception {
+                Toast.makeText(getActivity(), "Oops! Try again!", Toast.LENGTH_SHORT).show();
+            }
         }).debounce(500, TimeUnit.MILLISECONDS).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer() {
                     @Override
                     public void accept(Object o) throws Exception {
                         searchString = (String) o;
-                        Utils.hideKeyboard(getActivity());
-                        removePagination();
-                        addPagination();
-                        perfromSearch(false);
+                        if (isAdded()) {
+                            Utils.hideKeyboard(getActivity());
+                            removePagination();
+                            addPagination();
+                            resetValues();
+                            perfromSearch();
+                        }
                     }
                 });
+    }
+
+    private void resetValues() {
+        hitsList.clear();
+        currentPageCount = -1;
     }
 
     private void removePagination() {
@@ -121,12 +135,21 @@ public class Fragment_Home extends Fragment {
             searchProgress.setVisibility(View.GONE);
         }
     }
-    private void perfromSearch(final boolean isPaginatedList) {
+
+    private void perfromSearch() {
         handleProgressView(true);
         if (isAdded()) {
             RetrofitManager.getInstance().create(ApiManager.class).getSearchResultsForQuery(searchString, currentPageCount + 1)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
+                    .doOnError(new Consumer<Throwable>() {
+                        @Override
+                        public void accept(Throwable throwable) throws Exception {
+                            if (isAdded()) {
+                                Toast.makeText(getActivity(), "Something went wrong. Please try again", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    })
                     .subscribe(new Consumer<AlgoliaSearchResult>() {
                         @Override
                         public void accept(AlgoliaSearchResult algoliaSearchResult) throws Exception {
@@ -134,9 +157,6 @@ public class Fragment_Home extends Fragment {
                                 handleProgressView(false);
                                 loadingMore = false;
                                 currentPageCount = algoliaSearchResult.getPage();
-                                if (!isPaginatedList) {
-                                    hitsList.clear();
-                                }
                                 hitsList.addAll(algoliaSearchResult.getHits());
                                 adapter_searchResults.notifyDataSetChanged();
                             }
@@ -144,6 +164,7 @@ public class Fragment_Home extends Fragment {
                     });
         }
     }
+
     private void addPagination(){
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             int currentFirstVisibleItem = 0;
@@ -180,14 +201,14 @@ public class Fragment_Home extends Fragment {
                     if (!loadingMore) {
                         loadingMore = true;
                         if (isAdded()) {
-                            perfromSearch(true);
+                            perfromSearch();
                         }
                     }
                 }
             }
         });
     }
-    private String searchString="";
+
     private void initRecyclerView(){
         adapter_searchResults = new Adapter_SearchResults(getActivity(),hitsList);
         recyclerView.setAdapter(adapter_searchResults);
