@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Algolia Demo</string>
+    <string name="font_regular" >/fonts/AvenirLTStd_Light.otf</string>
+    <string name="font_regular_bold" >/fonts/AvenirLTStd_Medium.otf</string>
+</resources>
