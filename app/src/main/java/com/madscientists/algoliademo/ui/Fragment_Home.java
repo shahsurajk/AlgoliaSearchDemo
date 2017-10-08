@@ -7,6 +7,7 @@ import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.jakewharton.retrofit2.adapter.rxjava2.HttpException;
 import com.madscientists.algoliademo.R;
 import com.madscientists.algoliademo.adapter.Adapter_SearchResults;
 import com.madscientists.algoliademo.model.AlgoliaSearchResult;
@@ -87,9 +89,12 @@ public class Fragment_Home extends Fragment {
 
                     @Override
                     public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                        if (charSequence.toString().trim().length() > 1) {
-                            e.onNext(charSequence.toString().trim());
+                        if (charSequence.toString().trim().length() < 1) {
+                            searchString = "";
+                            resetValues();
+                            adapter_searchResults.notifyDataSetChanged();
                         }
+                        e.onNext(charSequence.toString().trim());
                     }
 
                     @Override
@@ -108,7 +113,7 @@ public class Fragment_Home extends Fragment {
                     @Override
                     public void accept(Object o) throws Exception {
                         searchString = (String) o;
-                        if (isAdded()) {
+                        if (isAdded() && !TextUtils.isEmpty(searchString)) {
                             Utils.hideKeyboard(getActivity());
                             removePagination();
                             addPagination();
@@ -159,6 +164,18 @@ public class Fragment_Home extends Fragment {
                                 currentPageCount = algoliaSearchResult.getPage();
                                 hitsList.addAll(algoliaSearchResult.getHits());
                                 adapter_searchResults.notifyDataSetChanged();
+                            }
+                        }
+                    }, new Consumer<Throwable>() {
+                        // onError()
+                        @Override
+                        public void accept(Throwable throwable) throws Exception {
+                            String msg = "Something went wrong. Please try again";
+                            if (throwable instanceof HttpException)
+                                msg = ((HttpException) throwable).message();
+                            if (isAdded()) {
+                                handleProgressView(false);
+                                Toast.makeText(getActivity(), msg, Toast.LENGTH_SHORT).show();
                             }
                         }
                     });
